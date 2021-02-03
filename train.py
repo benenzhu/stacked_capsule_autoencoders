@@ -43,7 +43,7 @@ flags.DEFINE_string('model', 'scae', 'Choose from {scae, constellation}.')
 flags.DEFINE_string('name', 'mnist', '')
 flags.mark_flag_as_required('name')
 
-flags.DEFINE_string('logdir', '../gdrive/stacked_capsule_autoencoders/checkpoints/{name}',
+flags.DEFINE_string('logdir', 'gdrive/MyDrive/stacked_capsule_autoencoders/checkpoints/{name}',
                     'Log and checkpoint directory for the experiment.')
 
 flags.DEFINE_float('grad_value_clip', 0., '')
