@@ -66,6 +66,7 @@ def get(config):
   """Builds the model."""
 
   if config.model == 'scae':
+    # 直接build了model了么?
     model = make_scae(config)
 
   elif config.model == 'constellation':
@@ -76,25 +77,32 @@ def get(config):
 
   lr = config.lr
   if config.use_lr_schedule:
+    # 这个 get_or_create_global_step 挺有用的
     global_step = tf.train.get_or_create_global_step()
+    # 动态调整学习率
     lr = tf.train.exponential_decay(
         global_step=global_step,
         learning_rate=lr,
         decay_steps=1e4,
         decay_rate=.96)
 
+  # 这个应该是 RMS里面要算的一个参数吧 为啥要用这个呢?
   eps = 1e-2 / float(config.batch_size)  ** 2
+  # opt是 optimizer的缩写
   opt = tf.train.RMSPropOptimizer(config.lr, momentum=.9, epsilon=eps)
 
+  # attr dict就是能在普通的索引情况下, 用 . attribute来索引成员变量
   return AttrDict(model=model, opt=opt, lr=config.lr)
 
 
 def make_scae(config):
   """Builds the SCAE."""
-
+  # 返回是 model 应该是整个的要训练的model了吧
+  # 这个好像是要transform 训练集
   img_size = [config.canvas_size] * 2
   template_size = [config.template_size] * 2
 
+  # 这个只是encoder的一部分, 用的是卷积,直接就是4个卷积模块了 padding可以自动 那snt还不错
   cnn_encoder = snt.nets.ConvNet2D(
       output_channels=[128] * 4,
       kernel_shapes=[3],
@@ -102,6 +110,7 @@ def make_scae(config):
       paddings=[snt.VALID],
       activate_final=True)
 
+  # 这个好像有点难啊,
   part_encoder = primary.CapsuleImageEncoder(
       cnn_encoder,
       config.n_part_caps,
@@ -110,6 +119,7 @@ def make_scae(config):
       similarity_transform=False,
       encoder_type='conv_att')
 
+  # 先往下看吧...
   part_decoder = primary.TemplateBasedImageDecoder(
       output_size=img_size,
       template_size=template_size,
@@ -120,7 +130,7 @@ def make_scae(config):
       template_nonlin=config.template_nonlin,
       color_nonlin=config.color_nonlin,
   )
-
+  # stacked auto encoder
   obj_encoder = SetTransformer(
       n_layers=3,
       n_heads=1,
@@ -129,7 +139,7 @@ def make_scae(config):
       n_outputs=config.n_obj_caps,
       layer_norm=True,
       dropout_rate=0.)
-
+  # decoder
   obj_decoder = ImageCapsule(
       config.n_obj_caps,
       2,
@@ -141,7 +151,7 @@ def make_scae(config):
       noise_type='uniform',
       noise_scale=4.,
       similarity_transform=False)
-
+  # 这里是直接堆起来就行了么?
   model = ImageAutoencoder(
       primary_encoder=part_encoder,
       primary_decoder=part_decoder,

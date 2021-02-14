@@ -24,12 +24,14 @@ import shutil
 import sys
 
 import traceback  # pylint:disable=g-import-not-at-top
+# 这个absl 在 tf.app.run()中对flags进行了初始化
 from absl import flags
 from absl import logging
 
 import numpy as np
 import tensorflow as tf
 
+# data_config和 model_config 定义了一堆flags
 from stacked_capsule_autoencoders.capsules.configs import data_config
 from stacked_capsule_autoencoders.capsules.configs import model_config
 from stacked_capsule_autoencoders.capsules.train import create_hooks
@@ -40,9 +42,11 @@ flags.DEFINE_string('dataset', 'mnist', 'Choose from: {mnist, constellation.}')
 flags.DEFINE_string('model', 'scae', 'Choose from {scae, constellation}.')
 
 
+# name是必须要提供的, 作为flags
 flags.DEFINE_string('name', 'mnist', '')
 flags.mark_flag_as_required('name')
 
+# logdir 这里 用gdrive可以用colab进行训练, 不过其实也可以 , 我们直接在本地目录下创建一下gdrive就好了
 flags.DEFINE_string('logdir', 'gdrive/MyDrive/stacked_capsule_autoencoders/checkpoints/{name}',
                     'Log and checkpoint directory for the experiment.')
 
@@ -55,39 +59,52 @@ flags.DEFINE_float('ema', .9, 'Exponential moving average weight for smoothing '
 flags.DEFINE_integer('run_updates_every', 10, '')
 flags.DEFINE_boolean('global_ema_update', True, '')
 
+# train 300K 步 用的好像是global step
 flags.DEFINE_integer('max_train_steps', int(3e5), '')
+
+# snapshot 是每 3600面来一下
 flags.DEFINE_integer('snapshot_secs', 3600, '')
 flags.DEFINE_integer('snapshot_steps', 0, '')
 flags.DEFINE_integer('snapshots_to_keep', 5, '')
+# 这个应该是tensorboard的summary吧
 flags.DEFINE_integer('summary_steps', 500, '')
 
+# 这个可以改小一点, 不过得看看loss是不是算的 test loss 要不然有性能损失
 flags.DEFINE_integer('report_loss_steps', 500, '')
 
+# 哪里进行了 plot?
 flags.DEFINE_boolean('plot', False, 'Produces intermediate results plots '
                      'if True.')
 flags.DEFINE_integer('plot_steps', 1000, '')
 
+# overwrite 一定要 False 决定是否吧checkpoint 进行重写
 flags.DEFINE_boolean('overwrite', False, 'Overwrites any existing run of the '
                      'same name if True; otherwise it tries to restore the '
                      'model if a checkpoint exists.')
 
+# ???
 flags.DEFINE_boolean('check_numerics', False, 'Adds check numerics ops.')
 
 
 def main(_=None):
   FLAGS = flags.FLAGS  # pylint: disable=invalid-name,redefined-outer-name
+  # 这里的config 没看懂在干嘛, 好像是便于传FLAGS ???
   config = FLAGS
   FLAGS.__dict__['config'] = config
 
+  # 这个写 logdir 的方式挺好的, 用 %s 后面用format 字符串
   FLAGS.logdir = FLAGS.logdir.format(name=FLAGS.name)
 
   logdir = FLAGS.logdir
+  # info 可以当做是print 来用么? 像是 c++ 的 print 而不是 python的把
   logging.info('logdir: %s', logdir)
 
+  # 一定不要 overwrite 不然不能继续训练, 不过我还没找到继续训练的代码在哪里
   if os.path.exists(logdir) and FLAGS.overwrite:
     logging.info('"overwrite" is set to True. Deleting logdir at "%s".', logdir)
     shutil.rmtree(logdir)
 
+  # 用默认图 好像是可以共享么? 有什么好处啊
   # Build the graph
   with tf.Graph().as_default():
 
@@ -218,7 +235,10 @@ def main(_=None):
 
 if __name__ == '__main__':
   try:
+    # INFO 的信息就能提醒出来了
+    # 用的是 absl.logging 这个库挺好的 出来是红色字体
     logging.set_verbosity(logging.INFO)
+    # 直接处理 flags, 调用main 函数
     tf.app.run()
   ## 每次把pdb调试调出来就是因为 google的这个模板
   except Exception as err:  # pylint: disable=broad-except
